@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/albert-widi/go_common/errors"
 	kitlog "github.com/go-kit/kit/log"
-	"github.com/tokopedia/megazord/errors"
 )
 
 type Level int
@@ -257,8 +257,9 @@ func (l *Logger) print(logLevel Level, msg interface{}, v ...interface{}) {
 		time.Now().String(),
 	}
 	for key := range newKey {
-		intfCopy[intfLength+key] = newKey[key]
-		intfCopy[intfLength+key+1] = newParams[key]
+		intfCopy[intfLength] = newKey[key]
+		intfCopy[intfLength+1] = newParams[key]
+		intfLength += 2
 	}
 	// logger
 	l.defaultLogger.Log(intfCopy...)
