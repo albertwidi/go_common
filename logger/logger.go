@@ -228,15 +228,6 @@ func (l *Logger) Fatalf(format string, v ...interface{}) {
 	l.print(FatalLevel, fmt.Sprintf(format, v...), l.fieldsToArrayInterface()...)
 }
 
-var (
-	newKey = []string{
-		"msg",
-		"level",
-		"time",
-	}
-	newKeyLength = len(newKey)
-)
-
 // print will print the actual log, all printer is pointing to this print
 // several params is added in this function, like msg, level and time
 // os exit is called when its called via FatalLevel
@@ -244,22 +235,22 @@ func (l *Logger) print(logLevel Level, msg interface{}, v ...interface{}) {
 	if logLevel < l.level {
 		return
 	}
+	intfLength := len(v)
 	// create a new interface and copy the entire interface parameter to new interface{}
 	// this is important because we don't want to append new parameter and grow the memory twice as big
-	intfLength := len(v)
 	// make sure that the length of new interface{} is the same with parameter bellow
-	intfCopy := make([]interface{}, len(v)+(newKeyLength*2))
+	paramsLength := 3
+	params := []interface{}{
+		"msg", msg,
+		"level", l.levelString,
+		"time", time.Now().String(),
+	}
+	intfCopy := make([]interface{}, len(v)+(paramsLength*2))
 	copy(intfCopy, v)
 	// add more parameter to log
-	newParams := []interface{}{
-		msg,
-		l.levelString,
-		time.Now().String(),
-	}
-	for key := range newKey {
-		intfCopy[intfLength] = newKey[key]
-		intfCopy[intfLength+1] = newParams[key]
-		intfLength += 2
+	for _, value := range params {
+		intfCopy[intfLength] = value
+		intfLength++
 	}
 	// logger
 	l.defaultLogger.Log(intfCopy...)
