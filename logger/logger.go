@@ -242,7 +242,7 @@ func (l *Logger) print(logLevel Level, msg interface{}, v ...interface{}) {
 	paramsLength := 3
 	params := []interface{}{
 		"msg", msg,
-		"level", l.levelString,
+		"level", levelToString(logLevel),
 		"time", time.Now().String(),
 	}
 	intfCopy := make([]interface{}, len(v)+(paramsLength*2))
