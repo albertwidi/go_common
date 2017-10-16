@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/albert-widi/go_common/errors"
+
 	klog "github.com/go-kit/kit/log"
 
 	"github.com/Sirupsen/logrus"
@@ -29,6 +31,13 @@ func BenchmarkSimpleLogger(b *testing.B) {
 func BenchmarkLoggerWithFields(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		log.WithFields(Fields{"field1": "value1"}).Info("This is a info with fields")
+	}
+}
+
+func BenchmarkError(b *testing.B) {
+	err := errors.New("This is new errors", errors.Fields{"err1": "err_value_1"})
+	for n := 0; n < b.N; n++ {
+		log.Errors(err)
 	}
 }
 

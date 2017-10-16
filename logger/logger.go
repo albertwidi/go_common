@@ -95,6 +95,9 @@ type Logger struct {
 	// fields for withfields
 	// this should be used by copying the object of logger
 	fields Fields
+
+	// tags for logger tagging
+	// tags []string
 }
 
 func New() *Logger {
@@ -103,6 +106,7 @@ func New() *Logger {
 		levelString:   levelToString(InfoLevel),
 		defaultLogger: kitlog.NewJSONLogger(os.Stderr),
 		logFormat:     JSONFormat,
+		// tags:          make([]string, 0),
 	}
 	return logger
 }
@@ -228,6 +232,10 @@ func (l *Logger) Fatalf(format string, v ...interface{}) {
 	l.print(FatalLevel, fmt.Sprintf(format, v...), l.fieldsToArrayInterface()...)
 }
 
+// ParamsLength is important to indicate what is the length of new params to be added into 'v' interface{}
+// please note that the number need to be increased when the param number is increased
+var paramsLength = 3
+
 // print will print the actual log, all printer is pointing to this print
 // several params is added in this function, like msg, level and time
 // os exit is called when its called via FatalLevel
@@ -235,28 +243,31 @@ func (l *Logger) print(logLevel Level, msg interface{}, v ...interface{}) {
 	if logLevel < l.level {
 		return
 	}
-	intfLength := len(v)
-	// create a new interface and copy the entire interface parameter to new interface{}
-	// this is important because we don't want to append new parameter and grow the memory twice as big
-	// make sure that the length of new interface{} is the same with parameter bellow
-	paramsLength := 3
+	// standard params that need to be added
 	params := []interface{}{
 		"msg", msg,
 		"level", levelToString(logLevel),
 		"time", time.Now().String(),
 	}
-	intfCopy := make([]interface{}, len(v)+(paramsLength*2))
-	copy(intfCopy, v)
-	// add more parameter to log
+
+	var startAppend int
+	intfLength := len(v)
+	if intfLength == 0 {
+		startAppend = 0
+	} else {
+		startAppend = intfLength - (paramsLength * 2)
+	}
+
 	for _, value := range params {
-		intfCopy[intfLength] = value
-		intfLength++
+		v[startAppend] = value
+		startAppend++
 	}
 	// logger
-	l.defaultLogger.Log(intfCopy...)
+	l.defaultLogger.Log(v...)
 	if l.externalExists {
-		l.externalLogger.Log(intfCopy...)
+		l.externalLogger.Log(v...)
 	}
+	// make sure exit when FatalLevel
 	if logLevel == FatalLevel {
 		os.Exit(1)
 	}
@@ -277,13 +288,11 @@ func (l Logger) WithFields(f Fields) *Logger {
 // fieldsToArrayInterface used to tranfrom fields to []interface
 // this is because the go-kit/log receive []interface as parameters
 func (l *Logger) fieldsToArrayInterface() []interface{} {
-	if len(l.fields) == 0 {
-		return nil
-	}
-	// always get Fields 0
 	fieldsLength := len(l.fields)
-	// length should be *2 because we want to store key-value
-	v := make([]interface{}, fieldsLength*2)
+	v := make([]interface{}, (fieldsLength*2)+(paramsLength*2))
+	if len(l.fields) == 0 {
+		return v
+	}
 	counter := 0
 	for key, value := range l.fields {
 		v[counter] = key
@@ -292,4 +301,8 @@ func (l *Logger) fieldsToArrayInterface() []interface{} {
 		counter++
 	}
 	return v
+}
+
+func (l *Logger) AddTags(t ...string) {
+	// l.tags = append(l.tags, t...)
 }
