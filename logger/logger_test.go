@@ -34,10 +34,17 @@ func BenchmarkLoggerWithFields(b *testing.B) {
 	}
 }
 
-func BenchmarkError(b *testing.B) {
+func BenchmarkErrors(b *testing.B) {
 	err := errors.New("This is new errors", errors.Fields{"err1": "err_value_1"})
 	for n := 0; n < b.N; n++ {
 		log.Errors(err)
+	}
+}
+
+func BenchmarkErrorsWithFields(b *testing.B) {
+	err := errors.New("This is new errors", errors.Fields{"err1": "err_value_1"})
+	for n := 0; n < b.N; n++ {
+		log.WithFields(Fields{"field1": "value1"}).Errors(err)
 	}
 }
 
