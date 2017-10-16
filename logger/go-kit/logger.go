@@ -248,13 +248,12 @@ func (l *Logger) print(logLevel Level, msg interface{}, v ...interface{}) {
 		"msg", msg,
 		"level", levelToString(logLevel),
 		"time", time.Now().String(),
+		// "tags", l.tags,
 	}
 
 	var startAppend int
 	intfLength := len(v)
-	if intfLength == 0 {
-		startAppend = 0
-	} else {
+	if intfLength != 0 {
 		startAppend = intfLength - (paramsLength * 2)
 	}
 
