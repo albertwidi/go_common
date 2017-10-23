@@ -28,6 +28,10 @@ type Errs struct {
 	// Fields is a fields context similar to logrus.Fields
 	// Can be used for adding more context to the errors
 	fields Fields
+
+	// Messages is a field to add stack of messages to error
+	// this is used to simplify error message stack
+	messages []string
 }
 
 var _ error = (*Errs)(nil)
@@ -67,6 +71,15 @@ func New(args ...interface{}) *Errs {
 				er = errors.New("error not defined")
 			}
 			err.fields = arg.(Fields)
+		case []string:
+			if er == nil {
+				er = errors.New("error not defined")
+			}
+			if err.messages == nil {
+				err.messages = make([]string, 0)
+			}
+			msgs := arg.([]string)
+			err.messages = append(err.messages, msgs...)
 		default:
 			_, file, line, _ := runtime.Caller(1)
 			log.Printf("errors.Errs: bad call from %s:%d: %v", file, line, args)
@@ -104,6 +117,11 @@ func (e *Errs) GetTrace() []string {
 
 func (e *Errs) GetFields() Fields {
 	return e.fields
+}
+
+// GetMessages return array of errors, this is depends by what kind of messages can be exists in the stack.
+func (e *Errs) GetMessages() []string {
+	return e.messages
 }
 
 /*

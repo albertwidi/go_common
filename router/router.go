@@ -5,16 +5,32 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
+	"github.com/alileza/common/log"
 	"github.com/eapache/go-resiliency/breaker"
 	"github.com/pressly/chi"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-/*
-Example of router package, the router wrapper is based on pressly/chi
-*/
+//Example of router package, the router wrapper is based on pressly/chi
+
+var (
+	// for prometheus monitoring
+	prometheusSummaryVec *prometheus.SummaryVec
+)
+
+func SetMonitoring(namespace string) {
+	prometheusSummaryVec = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Namespace: namespace,
+		Name:      "handler_request_milisecond",
+		Help:      "Average of handler response time at one time",
+	}, []string{"handler", "method", "httpcode"})
+	if err := prometheus.Register(prometheusSummaryVec); err != nil {
+		log.Errorf("Failed to register prometheus metrics: %s", err.Error())
+	}
+}
 
 // Router struct
 type Router struct {
@@ -70,6 +86,8 @@ func (rtr *Router) circuitbreaker(h http.HandlerFunc) http.HandlerFunc {
 }
 
 // timeout middleware
+// the timeout middleware should cover timeout budget
+// this is needed because the budget will determine it should open a breaker or not
 func (rtr *Router) timeout(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		opt := rtr.opt
@@ -102,6 +120,55 @@ func (rtr *Router) timeout(h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// responseWriterDelegator to delegate the current writer
+// this is a 100% from prometheus delegator with some modification
+// the modification is needed because namespace is required
+type responseWriterDelegator struct {
+	http.ResponseWriter
+
+	handler, method string
+	status          int
+	written         int64
+	wroteHeader     bool
+}
+
+func (r *responseWriterDelegator) WriteHeader(code int) {
+	r.status = code
+	r.wroteHeader = true
+	r.ResponseWriter.WriteHeader(code)
+}
+
+func (r *responseWriterDelegator) Write(b []byte) (int, error) {
+	if !r.wroteHeader {
+		r.WriteHeader(http.StatusOK)
+	}
+	n, err := r.ResponseWriter.Write(b)
+	r.written += int64(n)
+	return n, err
+}
+
+func sanitizeStatusCode(status int) string {
+	code := strconv.Itoa(status)
+	return code
+}
+
+// monitor middleware provides white-box monitoring for application
+// htp.ResponseWriter is delegated to create a custom metrics in this function
+func (rtr *Router) monitor(pattern string, h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		delegator := &responseWriterDelegator{ResponseWriter: w}
+		defer func(t time.Time) {
+			method := r.Method
+			statusCode := sanitizeStatusCode(delegator.status)
+			if prometheusSummaryVec != nil {
+				prometheusSummaryVec.With(prometheus.Labels{"handler": "all", "method": method, "httpcode": statusCode}).Observe(time.Since(t).Seconds() * 1000)
+				prometheusSummaryVec.With(prometheus.Labels{"handler": pattern, "method": method, "httpcode": statusCode}).Observe(time.Since(t).Seconds() * 1000)
+			}
+		}(time.Now())
+		h(delegator, r)
+	}
+}
+
 // URLParam get param from rest request
 func URLParam(r *http.Request, key string) string {
 	return chi.URLParam(r, key)
@@ -114,25 +181,25 @@ func URLParamFromCtx(ctx context.Context, key string) string {
 
 // Get function
 func (rtr *Router) Get(pattern string, h http.HandlerFunc) {
-	rtr.r.Get(pattern, prometheus.InstrumentHandlerFunc(pattern, rtr.timeout(h)))
+	rtr.r.Get(pattern, rtr.monitor(pattern, rtr.timeout(h)))
 }
 
 // Post function
 func (rtr *Router) Post(pattern string, h http.HandlerFunc) {
-	rtr.r.Post(pattern, prometheus.InstrumentHandlerFunc(pattern, rtr.timeout(h)))
+	rtr.r.Post(pattern, rtr.monitor(pattern, rtr.timeout(h)))
 }
 
 // Put function
 func (rtr *Router) Put(pattern string, h http.HandlerFunc) {
-	rtr.r.Put(pattern, prometheus.InstrumentHandlerFunc(pattern, rtr.timeout(h)))
+	rtr.r.Put(pattern, rtr.monitor(pattern, rtr.timeout(h)))
 }
 
 // Delete function
 func (rtr *Router) Delete(pattern string, h http.HandlerFunc) {
-	rtr.r.Delete(pattern, prometheus.InstrumentHandlerFunc(pattern, rtr.timeout(h)))
+	rtr.r.Delete(pattern, rtr.monitor(pattern, rtr.timeout(h)))
 }
 
 // Patch function
 func (rtr *Router) Patch(pattern string, h http.HandlerFunc) {
-	rtr.r.Patch(pattern, prometheus.InstrumentHandlerFunc(pattern, rtr.timeout(h)))
+	rtr.r.Patch(pattern, rtr.monitor(pattern, rtr.timeout(h)))
 }

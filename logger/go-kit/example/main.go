@@ -4,7 +4,7 @@ import (
 	stderrs "errors"
 
 	"github.com/albert-widi/go_common/errors"
-	"github.com/albert-widi/go_common/logger/go-kit"
+	"github.com/albert-widi/go_common/logger"
 )
 
 func main() {

@@ -97,7 +97,7 @@ type Logger struct {
 	fields Fields
 
 	// tags for logger tagging
-	// tags []string
+	tags string
 }
 
 func New() *Logger {
@@ -303,5 +303,4 @@ func (l *Logger) fieldsToArrayInterface() []interface{} {
 }
 
 func (l *Logger) AddTags(t ...string) {
-	// l.tags = append(l.tags, t...)
 }
