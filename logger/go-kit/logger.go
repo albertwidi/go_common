@@ -165,52 +165,63 @@ func createNewKitLogger(format Format, writer io.Writer) kitlog.Logger {
 }
 
 func (l *Logger) Debug(msg ...interface{}) {
-	l.print(DebugLevel, fmtFormatter(msg...), l.fieldsToArrayInterface()...)
+	l.print(DebugLevel, fmtFormatter(msg...))
 }
 
 func (l *Logger) Debugf(format string, v ...interface{}) {
-	l.print(DebugLevel, fmt.Sprintf(format, v...), l.fieldsToArrayInterface()...)
+	l.print(DebugLevel, fmt.Sprintf(format, v...))
 }
 
 func (l *Logger) Print(msg ...interface{}) {
-	l.print(InfoLevel, fmtFormatter(msg...), l.fieldsToArrayInterface()...)
+	l.print(InfoLevel, fmtFormatter(msg...))
 }
 
 func (l *Logger) Printf(format string, v ...interface{}) {
-	l.print(InfoLevel, fmt.Sprintf(format, v...), l.fieldsToArrayInterface()...)
+	l.print(InfoLevel, fmt.Sprintf(format, v...))
 }
 
 func (l *Logger) Info(msg ...interface{}) {
-	l.print(InfoLevel, fmtFormatter(msg...), l.fieldsToArrayInterface()...)
+	l.print(InfoLevel, fmtFormatter(msg...))
 }
 
 func (l *Logger) Infof(format string, v ...interface{}) {
-	l.print(InfoLevel, fmt.Sprintf(format, v...), l.fieldsToArrayInterface()...)
+	l.print(InfoLevel, fmt.Sprintf(format, v...))
 }
 
 func (l *Logger) Warn(msg ...interface{}) {
-	l.print(WarnLevel, fmtFormatter(msg...), l.fieldsToArrayInterface()...)
+	l.print(WarnLevel, fmtFormatter(msg...))
 }
 
 func (l *Logger) Warnf(format string, v ...interface{}) {
-	l.print(WarnLevel, fmt.Sprintf(format, v...), l.fieldsToArrayInterface()...)
+	l.print(WarnLevel, fmt.Sprintf(format, v...))
 }
 
 func (l *Logger) Error(msg ...interface{}) {
-	l.print(ErrorLevel, fmtFormatter(msg...), l.fieldsToArrayInterface()...)
+	l.print(ErrorLevel, fmtFormatter(msg...))
 }
 
 func (l *Logger) Errorf(format string, v ...interface{}) {
-	l.print(ErrorLevel, fmt.Sprintf(format, v...), l.fieldsToArrayInterface()...)
+	l.print(ErrorLevel, fmt.Sprintf(format, v...))
+}
+
+func formatFilePath(f string) string {
+	slash := strings.LastIndex(f, "/")
+	return f[slash+1:]
 }
 
 // Errors should be called by using errors package
 // errors package have special error fields to add more context in error
 func (l *Logger) Errors(err error) {
-	var errFields errors.Fields
+	var (
+		errFields errors.Fields
+		file      string
+		line      int
+	)
 	switch err.(type) {
 	case *errors.Errs:
-		errFields = err.(*errors.Errs).GetFields()
+		errs := err.(*errors.Errs)
+		errFields = errs.GetFields()
+		file, line = errs.GetFileAndLine()
 	}
 	// transform error fields to log fields
 	logFields := Fields(errFields)
@@ -220,16 +231,21 @@ func (l *Logger) Errors(err error) {
 			logFields[key] = value
 		}
 	}
+	// check if file and line is exists
+	if line != 0 {
+		logFields["err_file"] = formatFilePath(file)
+		logFields["err_line"] = line
+	}
 	l.fields = logFields
-	l.print(ErrorLevel, err.Error(), l.fieldsToArrayInterface()...)
+	l.print(ErrorLevel, err.Error())
 }
 
-func (l *Logger) Fatal(msg interface{}, Fields ...Fields) {
-	l.print(FatalLevel, msg, l.fieldsToArrayInterface()...)
+func (l *Logger) Fatal(msg ...interface{}) {
+	l.print(FatalLevel, fmtFormatter(msg...))
 }
 
 func (l *Logger) Fatalf(format string, v ...interface{}) {
-	l.print(FatalLevel, fmt.Sprintf(format, v...), l.fieldsToArrayInterface()...)
+	l.print(FatalLevel, fmt.Sprintf(format, v...))
 }
 
 // fmtFormatter used to format a standard array of interface log
@@ -239,37 +255,45 @@ func fmtFormatter(v ...interface{}) string {
 
 // ParamsLength is important to indicate what is the length of new params to be added into 'v' interface{}
 // please note that the number need to be increased when the param number is increased
-var paramsLength = 3
+var paramsLength = 4
 
 // print will print the actual log, all printer is pointing to this print
 // several params is added in this function, like msg, level and time
 // os exit is called when its called via FatalLevel
-func (l *Logger) print(logLevel Level, msg interface{}, v ...interface{}) {
+func (l *Logger) print(logLevel Level, msg interface{}) {
 	if logLevel < l.level {
 		return
 	}
+
+	var (
+		length       = paramsLength
+		fieldsExists bool
+	)
+	if len(l.fields) > 0 {
+		fieldsExists = true
+		length++
+	}
+	length = length * 2
+	params := make([]interface{}, length)
 	// standard params that need to be added
-	params := []interface{}{
-		"msg", msg,
-		"level", levelToString(logLevel),
-		"time", time.Now().String(),
-		// "tags", l.tags,
+	params[0] = "msg"
+	params[1] = msg
+	params[2] = "level"
+	params[3] = levelToString(logLevel)
+	params[4] = "time"
+	params[5] = time.Now().String()
+	params[6] = "tags"
+	params[7] = l.tags
+	// to check fields is exists
+	if fieldsExists {
+		params[length-2] = "fields"
+		params[length-1] = l.fields
 	}
 
-	var startAppend int
-	intfLength := len(v)
-	if intfLength != 0 {
-		startAppend = intfLength - (paramsLength * 2)
-	}
-
-	for _, value := range params {
-		v[startAppend] = value
-		startAppend++
-	}
 	// logger
-	l.defaultLogger.Log(v...)
+	l.defaultLogger.Log(params...)
 	if l.externalExists {
-		l.externalLogger.Log(v...)
+		l.externalLogger.Log(params...)
 	}
 	// make sure exit when FatalLevel
 	if logLevel == FatalLevel {
@@ -289,23 +313,6 @@ func (l Logger) WithFields(f Fields) *Logger {
 	return &l
 }
 
-// fieldsToArrayInterface used to tranfrom fields to []interface
-// this is because the go-kit/log receive []interface as parameters
-func (l *Logger) fieldsToArrayInterface() []interface{} {
-	fieldsLength := len(l.fields)
-	v := make([]interface{}, (fieldsLength*2)+(paramsLength*2))
-	if len(l.fields) == 0 {
-		return v
-	}
-	counter := 0
-	for key, value := range l.fields {
-		v[counter] = key
-		counter++
-		v[counter] = value
-		counter++
-	}
-	return v
-}
-
 func (l *Logger) AddTags(t ...string) {
+	l.tags = strings.Join(t, " ")
 }

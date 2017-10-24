@@ -22,7 +22,7 @@ func init() {
 
 func BenchmarkSimpleLogger(b *testing.B) {
 	for n := 0; n < b.N; n++ {
-		log.Error("Something is wrong")
+		log.Error("Something is wrong", "this is so wrong")
 	}
 }
 

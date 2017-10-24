@@ -17,6 +17,11 @@ func SetRuntimeOutput(b bool) {
 	runtimeOutput = b
 }
 
+// IsRuntimeEnabled to check the status of runtimeOutput
+func IsRuntimeEnabled() bool {
+	return runtimeOutput
+}
+
 type Fields map[string]interface{}
 
 // Errs struct
