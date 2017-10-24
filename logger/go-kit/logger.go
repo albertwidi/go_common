@@ -164,40 +164,40 @@ func createNewKitLogger(format Format, writer io.Writer) kitlog.Logger {
 	}
 }
 
-func (l *Logger) Debug(msg interface{}) {
-	l.print(DebugLevel, msg, l.fieldsToArrayInterface()...)
+func (l *Logger) Debug(msg ...interface{}) {
+	l.print(DebugLevel, fmtFormatter(msg...), l.fieldsToArrayInterface()...)
 }
 
 func (l *Logger) Debugf(format string, v ...interface{}) {
 	l.print(DebugLevel, fmt.Sprintf(format, v...), l.fieldsToArrayInterface()...)
 }
 
-func (l *Logger) Print(msg interface{}) {
-	l.print(InfoLevel, msg, l.fieldsToArrayInterface()...)
+func (l *Logger) Print(msg ...interface{}) {
+	l.print(InfoLevel, fmtFormatter(msg...), l.fieldsToArrayInterface()...)
 }
 
 func (l *Logger) Printf(format string, v ...interface{}) {
 	l.print(InfoLevel, fmt.Sprintf(format, v...), l.fieldsToArrayInterface()...)
 }
 
-func (l *Logger) Info(msg interface{}) {
-	l.print(InfoLevel, msg, l.fieldsToArrayInterface()...)
+func (l *Logger) Info(msg ...interface{}) {
+	l.print(InfoLevel, fmtFormatter(msg...), l.fieldsToArrayInterface()...)
 }
 
 func (l *Logger) Infof(format string, v ...interface{}) {
 	l.print(InfoLevel, fmt.Sprintf(format, v...), l.fieldsToArrayInterface()...)
 }
 
-func (l *Logger) Warn(msg interface{}) {
-	l.print(WarnLevel, msg, l.fieldsToArrayInterface()...)
+func (l *Logger) Warn(msg ...interface{}) {
+	l.print(WarnLevel, fmtFormatter(msg...), l.fieldsToArrayInterface()...)
 }
 
 func (l *Logger) Warnf(format string, v ...interface{}) {
 	l.print(WarnLevel, fmt.Sprintf(format, v...), l.fieldsToArrayInterface()...)
 }
 
-func (l *Logger) Error(msg interface{}) {
-	l.print(ErrorLevel, msg, l.fieldsToArrayInterface()...)
+func (l *Logger) Error(msg ...interface{}) {
+	l.print(ErrorLevel, fmtFormatter(msg...), l.fieldsToArrayInterface()...)
 }
 
 func (l *Logger) Errorf(format string, v ...interface{}) {
@@ -230,6 +230,11 @@ func (l *Logger) Fatal(msg interface{}, Fields ...Fields) {
 
 func (l *Logger) Fatalf(format string, v ...interface{}) {
 	l.print(FatalLevel, fmt.Sprintf(format, v...), l.fieldsToArrayInterface()...)
+}
+
+// fmtFormatter used to format a standard array of interface log
+func fmtFormatter(v ...interface{}) string {
+	return fmt.Sprint(v...)
 }
 
 // ParamsLength is important to indicate what is the length of new params to be added into 'v' interface{}

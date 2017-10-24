@@ -33,6 +33,17 @@ func TestErrs(t *testing.T) {
 	}
 }
 
+func TestMessages(t *testing.T) {
+	err := New("Some error", []string{"stack1", "stack2"})
+	if len(err.GetMessages()) != 2 {
+		t.Errorf("Expect %d but got %d", 2, len(err.GetMessages()))
+	}
+	err = New(err, []string{"field1", "field2"})
+	if len(err.GetMessages()) != 4 {
+		t.Errorf("Expect %d but got %d after append", 4, len(err.GetMessages()))
+	}
+}
+
 func TestMatch(t *testing.T) {
 	cases := []struct {
 		err1        error

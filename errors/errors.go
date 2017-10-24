@@ -10,6 +10,13 @@ import (
 	"log"
 )
 
+var runtimeOutput bool
+
+// SetRuntimeOutput will provide error information where the error is happened
+func SetRuntimeOutput(b bool) {
+	runtimeOutput = b
+}
+
 type Fields map[string]interface{}
 
 // Errs struct
@@ -32,62 +39,61 @@ type Errs struct {
 	// Messages is a field to add stack of messages to error
 	// this is used to simplify error message stack
 	messages []string
+
+	// var for runtime output
+	file string
+	line int
 }
 
 var _ error = (*Errs)(nil)
 
-/*
-Errs will parse arguments based on the data type
-1. If string then it will convert the arg to Error
-2. If error, then it will just copy the error
-3. If the type is *Errs, it will copy the address and create new Errs object
-4. If the type is Codes or uint8, then it will convert it to code
-*/
-
 // New Errs
 func New(args ...interface{}) *Errs {
 	var (
-		er     error
-		traces []string
+		er    error
+		isBad bool
 	)
-	err := &Errs{}
+	err := &Errs{err: errors.New("Unknown error")}
 	for _, arg := range args {
 		switch arg.(type) {
 		case string:
 			er = errors.New(arg.(string))
-		case error:
-			er = arg.(error)
 		case *Errs:
 			// copy and put the errors back
-			err := *arg.(*Errs)
-			er = err.err
-			traces = err.traces
+			errcpy := *arg.(*Errs)
+			err = &errcpy
+		// error should be placed below *Errs
+		// implementation of Error() string will detect *Errs as error
+		case error:
+			er = arg.(error)
 		case Codes:
 			err.code = arg.(Codes)
 			errString, _ := err.code.ErrorAndCode()
 			er = errors.New(errString)
+		// Fields cannot be appended
+		// new fields will always replace the old fields
 		case Fields:
-			if er == nil {
-				er = errors.New("error not defined")
-			}
 			err.fields = arg.(Fields)
 		case []string:
-			if er == nil {
-				er = errors.New("error not defined")
-			}
 			if err.messages == nil {
 				err.messages = make([]string, 0)
 			}
 			msgs := arg.([]string)
 			err.messages = append(err.messages, msgs...)
 		default:
+			// the default error is unknown
 			_, file, line, _ := runtime.Caller(1)
 			log.Printf("errors.Errs: bad call from %s:%d: %v", file, line, args)
-			er = errors.New("unknown error")
 		}
 	}
-	err.err = er
-	err.traces = traces
+	// if er have value then set errrors.error to er
+	if er != nil {
+		err.err = er
+	}
+	// only get the runtime file and line if err is defined
+	if runtimeOutput && !isBad {
+		_, err.file, err.line, _ = runtime.Caller(1)
+	}
 	return err
 }
 
@@ -115,6 +121,7 @@ func (e *Errs) GetTrace() []string {
 	return e.traces
 }
 
+// GetFields return available fields in errors
 func (e *Errs) GetFields() Fields {
 	return e.fields
 }
@@ -122,6 +129,12 @@ func (e *Errs) GetFields() Fields {
 // GetMessages return array of errors, this is depends by what kind of messages can be exists in the stack.
 func (e *Errs) GetMessages() []string {
 	return e.messages
+}
+
+// GetFileAndLine is part of runtimeOutput, as runtime will give file and line information
+// will give empty string and 0 if runtimeOutput is false
+func (e *Errs) GetFileAndLine() (string, int) {
+	return e.file, e.line
 }
 
 /*
