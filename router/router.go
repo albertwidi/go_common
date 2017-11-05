@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/alileza/common/log"
 	"github.com/eapache/go-resiliency/breaker"
 	"github.com/pressly/chi"
 	"github.com/prometheus/client_golang/prometheus"
@@ -28,7 +28,7 @@ func SetMonitoring(namespace string) {
 		Help:      "Average of handler response time at one time",
 	}, []string{"handler", "method", "httpcode"})
 	if err := prometheus.Register(prometheusSummaryVec); err != nil {
-		log.Errorf("Failed to register prometheus metrics: %s", err.Error())
+		log.Printf("Failed to register prometheus metrics: %s", err.Error())
 	}
 }
 
@@ -106,8 +106,8 @@ func (rtr *Router) timeout(h http.HandlerFunc) http.HandlerFunc {
 		select {
 		case <-r.Context().Done():
 			// only an example response
-			resp := map[string]string{
-				"error": "Request timed out",
+			resp := map[string]interface{}{
+				"errors": []string{"Request timed out"},
 			}
 			jsonResp, _ := json.Marshal(resp)
 			w.WriteHeader(http.StatusRequestTimeout)
@@ -126,10 +126,10 @@ func (rtr *Router) timeout(h http.HandlerFunc) http.HandlerFunc {
 type responseWriterDelegator struct {
 	http.ResponseWriter
 
-	handler, method string
-	status          int
-	written         int64
-	wroteHeader     bool
+	// handler, method string
+	status      int
+	written     int64
+	wroteHeader bool
 }
 
 func (r *responseWriterDelegator) WriteHeader(code int) {
@@ -161,7 +161,6 @@ func (rtr *Router) monitor(pattern string, h http.HandlerFunc) http.HandlerFunc 
 			method := r.Method
 			statusCode := sanitizeStatusCode(delegator.status)
 			if prometheusSummaryVec != nil {
-				prometheusSummaryVec.With(prometheus.Labels{"handler": "all", "method": method, "httpcode": statusCode}).Observe(time.Since(t).Seconds() * 1000)
 				prometheusSummaryVec.With(prometheus.Labels{"handler": pattern, "method": method, "httpcode": statusCode}).Observe(time.Since(t).Seconds() * 1000)
 			}
 		}(time.Now())

@@ -106,7 +106,6 @@ func New() *Logger {
 		levelString:   levelToString(InfoLevel),
 		defaultLogger: kitlog.NewJSONLogger(os.Stderr),
 		logFormat:     JSONFormat,
-		// tags:          make([]string, 0),
 	}
 	return logger
 }
@@ -168,11 +167,19 @@ func (l *Logger) Debug(msg ...interface{}) {
 	l.print(DebugLevel, fmtFormatter(msg...))
 }
 
+func (l *Logger) Debugln(msg ...interface{}) {
+	l.print(DebugLevel, fmtFormatter(msg...))
+}
+
 func (l *Logger) Debugf(format string, v ...interface{}) {
 	l.print(DebugLevel, fmt.Sprintf(format, v...))
 }
 
 func (l *Logger) Print(msg ...interface{}) {
+	l.print(InfoLevel, fmtFormatter(msg...))
+}
+
+func (l *Logger) Println(msg ...interface{}) {
 	l.print(InfoLevel, fmtFormatter(msg...))
 }
 
@@ -184,6 +191,10 @@ func (l *Logger) Info(msg ...interface{}) {
 	l.print(InfoLevel, fmtFormatter(msg...))
 }
 
+func (l *Logger) Infoln(msg ...interface{}) {
+	l.print(InfoLevel, fmtFormatter(msg...))
+}
+
 func (l *Logger) Infof(format string, v ...interface{}) {
 	l.print(InfoLevel, fmt.Sprintf(format, v...))
 }
@@ -192,11 +203,19 @@ func (l *Logger) Warn(msg ...interface{}) {
 	l.print(WarnLevel, fmtFormatter(msg...))
 }
 
+func (l *Logger) Warnln(msg ...interface{}) {
+	l.print(WarnLevel, fmtFormatter(msg...))
+}
+
 func (l *Logger) Warnf(format string, v ...interface{}) {
 	l.print(WarnLevel, fmt.Sprintf(format, v...))
 }
 
 func (l *Logger) Error(msg ...interface{}) {
+	l.print(ErrorLevel, fmtFormatter(msg...))
+}
+
+func (l *Logger) Errorln(msg ...interface{}) {
 	l.print(ErrorLevel, fmtFormatter(msg...))
 }
 

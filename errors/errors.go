@@ -79,6 +79,8 @@ func New(args ...interface{}) *Errs {
 		// new fields will always replace the old fields
 		case Fields:
 			err.fields = arg.(Fields)
+		// []string is detected as Errs.Messages
+		// Messages can be appended, but might need to create a different type in the future
 		case []string:
 			if err.messages == nil {
 				err.messages = make([]string, 0)
